@@ -250,6 +250,8 @@ class Agent(Generic[Context]):
 		if self.settings.save_conversation_path:
 			logger.info(f'Saving conversation to {self.settings.save_conversation_path}')
 
+		logger.info('This is a fork of origin browser-use repo')
+
 	def _set_message_context(self) -> str | None:
 		if self.tool_calling_method == 'raw':
 			# For raw tool calling, only include actions with no filters initially
@@ -277,10 +279,12 @@ class Agent(Generic[Context]):
 				source = 'git'
 			else:
 				# If no repo files found, try getting version from pip
-				import pkg_resources
+				# import pkg_resources
 
-				version = pkg_resources.get_distribution('browser-use').version
-				source = 'pip'
+				# version = pkg_resources.get_distribution('browser-use').version
+				# Prevent deprecation warning from pkg_resources
+				version = 'unknown'
+				source = 'unknown'
 		except Exception:
 			version = 'unknown'
 			source = 'unknown'
