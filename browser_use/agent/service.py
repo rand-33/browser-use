@@ -1099,14 +1099,18 @@ class Agent(Generic[Context]):
 
 	def pause(self) -> None:
 		"""Pause the agent before the next step"""
-		print('\n\nPaused the agent and left the browser open.')
+		print('\nPaused the agent and left the browser open.')
 		self.state.paused = True
 		self.pause_handler.pause()
 
-	def resume(self) -> None:
+	def resume(self, message: str | None = None) -> None:
 		"""Resume the agent"""
 		print('----------------------------------------------------------------------')
-		print('▶️  Got Enter, resuming agent execution where it left off...\n')
+		print('Resuming agent execution where it left off...\n')
+
+		if message:
+			self.message_manager._add_message_with_tokens(HumanMessage(content=message))
+
 		self.state.paused = False
 		self.pause_handler.resume()
 
