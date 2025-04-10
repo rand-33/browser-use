@@ -820,9 +820,6 @@ class Agent(Generic[Context]):
 			return self.state.history
 
 		finally:
-			# Unregister signal handlers before cleanup
-			signal_handler.unregister()
-
 			self.telemetry.capture(
 				AgentEndTelemetryEvent(
 					agent_id=self.state.agent_id,
