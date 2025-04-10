@@ -757,18 +757,9 @@ class Agent(Generic[Context]):
 		"""Execute the task with maximum number of steps"""
 
 		loop = asyncio.get_event_loop()
+		from browser_use.agent.pause_handler import PauseHandler
 
-		# Set up the Ctrl+C signal handler with callbacks specific to this agent
-		from browser_use.utils import SignalHandler
-
-		signal_handler = SignalHandler(
-			loop=loop,
-			pause_callback=self.pause,
-			resume_callback=self.resume,
-			custom_exit_callback=None,  # No special cleanup needed on forced exit
-			exit_on_second_int=True,
-		)
-		signal_handler.register()
+		self.pause_handler = PauseHandler(loop=loop)
 
 		# Start non-blocking LLM connection verification
 		assert self.llm._verified_api_keys, 'Failed to verify LLM API keys'
@@ -782,10 +773,9 @@ class Agent(Generic[Context]):
 				self.state.last_result = result
 
 			for step in range(max_steps):
-				# Check if waiting for user input after Ctrl+C
 				if self.state.paused:
-					signal_handler.wait_for_resume()
-					signal_handler.reset()
+					await self.pause_handler.wait_for_resume()
+					self.state.paused = False
 
 				# Check if we should stop due to too many failures
 				if self.state.consecutive_failures >= self.settings.max_failures:
@@ -797,6 +787,7 @@ class Agent(Generic[Context]):
 					logger.info('Agent stopped')
 					break
 
+				# TODO: Don't understand why we could enter here, vs await self.pause_handler.wait_for_resume()
 				while self.state.paused:
 					await asyncio.sleep(0.2)  # Small delay to prevent CPU spinning
 					if self.state.stopped:  # Allow stopping while paused
@@ -1111,28 +1102,26 @@ class Agent(Generic[Context]):
 
 	def pause(self) -> None:
 		"""Pause the agent before the next step"""
-		print('\n\n⏸️  Got Ctrl+C, paused the agent and left the browser open.')
+		print('\n\nPaused the agent and left the browser open.')
 		self.state.paused = True
-
-		# The signal handler will handle the asyncio pause logic for us
-		# No need to duplicate the code here
+		self.pause_handler.pause()
 
 	def resume(self) -> None:
 		"""Resume the agent"""
 		print('----------------------------------------------------------------------')
 		print('▶️  Got Enter, resuming agent execution where it left off...\n')
 		self.state.paused = False
+		self.pause_handler.resume()
 
-		# The signal handler should have already reset the flags
-		# through its reset() method when called from run()
-
+		# This is not needed anymore, because we are using the pause_handler to pause and resume the agent
+		# And we removed the SignalHandler
 		# playwright browser is always immediately killed by the first Ctrl+C (no way to stop that)
 		# so we need to restart the browser if user wants to continue
-		if self.browser:
-			logger.info('🌎 Restarting/reconnecting to browser...')
-			loop = asyncio.get_event_loop()
-			loop.create_task(self.browser._init())
-			loop.create_task(asyncio.sleep(5))
+		# if self.browser:
+		# 	logger.info('🌎 Restarting/reconnecting to browser...')
+		# 	loop = asyncio.get_event_loop()
+		# 	loop.create_task(self.browser._init())
+		# 	loop.create_task(asyncio.sleep(5))
 
 	def stop(self) -> None:
 		"""Stop the agent"""
